@@ -149,9 +149,9 @@ class IRODSUploadWorker(QObject):
     ) -> str:
         """Map a local file into the configured iRODS collection root."""
 
-        try:
+        if local_file.is_relative_to(monitored_directory):
             relative_path = local_file.relative_to(monitored_directory)
-        except ValueError:
+        else:
             relative_path = Path(local_file.name)
 
         logical_root = PurePosixPath(normalize_irods_collection(target_collection))
@@ -218,18 +218,13 @@ class IRODSUploadWorker(QObject):
         if destination_collection == normalized_target:
             return
 
-        current_path = PurePosixPath(normalized_target)
-
-        for part in PurePosixPath(destination_collection).relative_to(current_path).parts:
-            current_path = current_path.joinpath(part)
-            current_path_str = str(current_path)
-            try:
-                session.collections.get(current_path_str)
-            except Exception:
-                self.upload_debug.emit(
-                    f"upload debug -> stage=creating collection collection={current_path_str}"
-                )
-                session.collections.create(current_path_str)
+        try:
+            session.collections.get(destination_collection)
+        except Exception:
+            self.upload_debug.emit(
+                f"upload debug -> stage=creating collection collection={destination_collection}"
+            )
+            session.collections.create(destination_collection)
 
     def _format_exception_message(self, exc: Exception) -> str:
         """Return a stable error string even when the underlying exception is blank."""
